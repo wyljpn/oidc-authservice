@@ -10,6 +10,7 @@ import (
 
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/sessions"
+	cache "github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"github.com/tevino/abool"
 	"golang.org/x/oauth2"
@@ -43,6 +44,7 @@ type server struct {
 	oauth2Config            *oauth2.Config
 	store                   sessions.Store
 	oidcStateStore          sessions.Store
+	bearerUserInfoCache     *cache.Cache
 	authenticators          []authenticator.Request
 	authorizers             []Authorizer
 	afterLoginRedirectURL   string
@@ -50,6 +52,9 @@ type server struct {
 	afterLogoutRedirectURL  string
 	sessionMaxAgeSeconds    int
 	strictSessionValidation bool
+
+	cacheEnabled            bool
+
 	authHeader              string
 	idTokenOpts             jwtClaimOpts
 	upstreamHTTPHeaderOpts  httpHeaderOpts
@@ -80,31 +85,55 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Authenticating request...")
 
 	var userInfo user.Info
-	for i, auth := range s.authenticators {
-		logger.Infof("%s starting...", strings.Title(authenticatorsMapping[i]))
-		resp, found, err := auth.AuthenticateRequest(r)
-		if err != nil {
-			logger.Errorf("Error authenticating request using %s: %v", authenticatorsMapping[i], err)
-			// If we get a login expired error, it means the authenticator
-			// recognised a valid authentication method which has expired
-			var expiredErr *loginExpiredError
-			if errors.As(err, &expiredErr) {
-				returnMessage(w, http.StatusUnauthorized, expiredErr.Error())
-				return
+
+	userInfo = nil
+
+	var bearer string
+	userInfo = nil
+	bearer = ""
+
+	if s.cacheEnabled {
+		logger.Info("Examining if the request has a cached bearer token"+
+	                "in the Authorization Header.")
+		bearer, userInfo = s.authCachedBearerToken(r)
+	}
+
+	if userInfo == nil {
+		for i, auth := range s.authenticators {
+
+
+			logger.Infof("%s starting...", strings.Title(authenticatorsMapping[i]))
+			resp, found, err := auth.AuthenticateRequest(r)
+			if err != nil {
+				logger.Errorf("Error authenticating request using %s: %v", authenticatorsMapping[i], err)
+				// If we get a login expired error, it means the authenticator
+				// recognised a valid authentication method which has expired
+				var expiredErr *loginExpiredError
+				if errors.As(err, &expiredErr) {
+					returnMessage(w, http.StatusUnauthorized, expiredErr.Error())
+					return
+				}
+			}
+			if found {
+				logger.Infof("Successfully authenticated request using %s", authenticatorsMapping[i])
+				userInfo = resp.User
+				logger.Infof("UserInfo: %+v", userInfo)
+
+				if s.cacheEnabled{
+					if len(bearer) != 0 {
+						logger.Infof("Caching freshly authenticated bearer token...")
+						s.bearerUserInfoCache.Set(bearer, userInfo, cache.NoExpiration)
+					}
+				}
+				break
 			}
 		}
-		if found {
-			logger.Infof("Successfully authenticated request using %s", authenticatorsMapping[i])
-			userInfo = resp.User
-			logger.Infof("UserInfo: %+v", userInfo)
-			break
+		if userInfo == nil {
+			logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
+			// TODO: Detect "X-Requested-With" header and return 401
+			s.authCodeFlowAuthenticationRequest(w, r)
+			return
 		}
-	}
-	if userInfo == nil {
-		logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
-		// TODO: Detect "X-Requested-With" header and return 401
-		s.authCodeFlowAuthenticationRequest(w, r)
-		return
 	}
 
 	logger = logger.WithField("user", userInfo)
@@ -147,6 +176,33 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	return
+}
+
+// authCachedBearerToken authenticates the client that is making the request
+// based on their token. For this function to successfully authenticate the
+// client request:
+//    * the request must contain the Bearer Token in the Authorization Header
+//    * the Bearer Token must exist in the cache
+func (s *server) authCachedBearerToken(r *http.Request) (string, user.Info) {
+
+	logger := loggerForRequest(r, logModuleInfo)
+
+	bearer := getBearerToken(r.Header.Get(s.authHeader))
+	if len(bearer) != 0 {
+		logger.Info("Extracted bearer token from request.")
+		logger.Info("Searching cache for bearer token...")
+		// Step 2: Check if the retrieved Bearer Token in the cache
+		cachedUserInfo, found := s.bearerUserInfoCache.Get(bearer)
+		if found {
+			// Step 3: Retrieve the cached User Info
+			logger.Infof("Found bearer token in cache.")
+			userInfo := cachedUserInfo.(user.Info)
+			logger.Infof("Cached UserInfo: %+v", userInfo)
+			return bearer, userInfo
+		}
+		logger.Info("The extracted bearer token is not cached.")
+	}
+	return bearer, nil
 }
 
 // authCodeFlowAuthenticationRequest initiates an OIDC Authorization Code flow
