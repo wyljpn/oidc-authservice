@@ -63,7 +63,6 @@ type config struct {
 	// bearerUserInfoCache configuration
 	CacheEnabled           bool  `split_words:"true" default:"false" envconfig:"CACHE_ENABLED"`
 	CacheExpiration        int   `split_words:"true" default:"5" envconfig:"CACHE_EXPIRATION"`
-	CacheCleanupInterval   int   `split_words:"true" default:"10" envconfig:"CACHE_CLEANUP_INTERVAL"`
 
 	// Authorization
 	GroupsAllowlist []string `split_words:"true" default:"*"`

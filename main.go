@@ -24,6 +24,7 @@ import (
 
 // Issue: https://github.com/gorilla/sessions/issues/200
 const secureCookieKeyPair = "notNeededBecauseCookieValueIsRandom"
+const CacheCleanupInterval = 10
 
 func main() {
 
@@ -165,7 +166,7 @@ func main() {
 
 	// Set the bearerUserInfoCache cache to store
 	// the (Bearer Token, UserInfo) pairs.
-	bearerUserInfoCache := cache.New(time.Duration(c.CacheExpiration)*time.Minute, time.Duration(c.CacheCleanupInterval)*time.Minute)
+	bearerUserInfoCache := cache.New(time.Duration(c.CacheExpiration)*time.Minute, time.Duration(CacheCleanupInterval)*time.Minute)
 
 	// Set the server values.
 	// The isReady atomic variable should protect it from concurrency issues.
@@ -194,6 +195,7 @@ func main() {
 		sessionMaxAgeSeconds:    c.SessionMaxAge,
 		strictSessionValidation: c.StrictSessionValidation,
 		cacheEnabled:            c.CacheEnabled,
+		cacheExpiration:         c.CacheExpiration,
 		authHeader:              c.AuthHeader,
 		caBundle:                caBundle,
 		authenticators: []authenticator.Request{
