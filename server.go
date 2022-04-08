@@ -56,7 +56,7 @@ type server struct {
 	strictSessionValidation bool
 
 	cacheEnabled            bool
-	cacheExpiration         int
+	cacheExpirationMinutes  int
 
 	authHeader              string
 	idTokenOpts             jwtClaimOpts
@@ -142,7 +142,7 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 
 			if cacheKey != "" {
 				logger.Infof("Caching freshly authenticated bearer token...")
-				s.bearerUserInfoCache.Set(cacheKey, userInfo, time.Duration(s.cacheExpiration)*time.Minute)
+				s.bearerUserInfoCache.Set(cacheKey, userInfo, time.Duration(s.cacheExpirationMinutes)*time.Minute)
 			}
 			break
 		}

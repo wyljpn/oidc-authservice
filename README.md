@@ -127,7 +127,7 @@ settings are related to the caching mechanism:
 | Setting | Default | Description |
 | - | - | - |
 | `CACHE_ENABLED` | `false` | Set `CACHE_ENABLED` to `true` to enable caching. |
-| `CACHE_EXPIRATION` | `5` (minutes) | Set the `CACHE_EXPIRATION` value to define how many minutes it takes for every cache entry to expire. |
+| `CACHE_EXPIRATION_MINUTES` | `5` (minutes) | Set the `CACHE_EXPIRATION_MINUTES` value to define how many minutes it takes for every cache entry to expire. |
 
 OIDC AuthService can also perform basic authorization checks. The following
 settings are related to authorization:

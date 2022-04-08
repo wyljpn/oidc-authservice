@@ -166,7 +166,7 @@ func main() {
 
 	// Set the bearerUserInfoCache cache to store
 	// the (Bearer Token, UserInfo) pairs.
-	bearerUserInfoCache := cache.New(time.Duration(c.CacheExpiration)*time.Minute, time.Duration(CacheCleanupInterval)*time.Minute)
+	bearerUserInfoCache := cache.New(time.Duration(c.CacheExpirationMinutes)*time.Minute, time.Duration(CacheCleanupInterval)*time.Minute)
 
 	// Set the server values.
 	// The isReady atomic variable should protect it from concurrency issues.
@@ -195,7 +195,7 @@ func main() {
 		sessionMaxAgeSeconds:    c.SessionMaxAge,
 		strictSessionValidation: c.StrictSessionValidation,
 		cacheEnabled:            c.CacheEnabled,
-		cacheExpiration:         c.CacheExpiration,
+		cacheExpirationMinutes:  c.CacheExpirationMinutes,
 		authHeader:              c.AuthHeader,
 		caBundle:                caBundle,
 		authenticators: []authenticator.Request{
