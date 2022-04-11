@@ -6,9 +6,9 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
-	"reflect"
 
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/sessions"
@@ -87,41 +87,37 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	logger := loggerForRequest(r, logModuleInfo)
 	logger.Info("Authenticating request...")
 
-	// Declare the necessary variables for the caching mechanism.
-	var authenticator Cacheable
 	var userInfo user.Info
-	cacheKey := ""
 
 	userInfo = nil
 
 	for i, auth := range s.authenticators {
-
-		authenticator = nil
+		var cacheKey string
 
 		if s.cacheEnabled {
-			logger.Info("The caching mechanism is enabled.")
+			// If the cache is enabled, check if the current authenticator implements the Cacheable interface.
 			cacheable := reflect.TypeOf((*Cacheable)(nil)).Elem()
 			isCacheable := reflect.TypeOf(auth).Implements(cacheable)
 
 			if isCacheable {
-				logger.Infof("Retrieving the cache key...")
-				authenticator = reflect.ValueOf(auth).Interface().(Cacheable)
-				cacheKey = authenticator.getCacheKey(r)
+				// Store the key that we are going to use for caching UserDetails.
+				// We store it before the authentication, because the authenticators may mutate the request object.
+				logger.Debugf("Retrieving the cache key...")
+				cacheableAuthenticator := reflect.ValueOf(auth).Interface().(Cacheable)
+				cacheKey = cacheableAuthenticator.getCacheKey(r)
 			}
 		}
 
-		if authenticator != nil {
-			logger.Info("Examining if the request has a cached bearer token"+
-						" in the Authorization Header.")
-			userInfo = s.authCachedBearerToken(r)
+		if cacheKey != "" {
+			// If caching is enabled, try to retrieve the UserInfo from cache.
+			userInfo = s.getCachedUserInfo(cacheKey, r)
 
 			if userInfo != nil {
-				logger.Infof("Successfully authenticated request using the caching mechanism.")
+				logger.Infof("Successfully authenticated request using the cache.")
 				logger.Infof("UserInfo: %+v", userInfo)
 				break
 			}
 		}
-
 
 		logger.Infof("%s starting...", strings.Title(authenticatorsMapping[i]))
 		resp, found, err := auth.AuthenticateRequest(r)
@@ -141,7 +137,8 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 			logger.Infof("UserInfo: %+v", userInfo)
 
 			if cacheKey != "" {
-				logger.Infof("Caching freshly authenticated bearer token...")
+				// If cache is enabled and the current authenticator is Cacheable, store the UserInfo to cache.
+				logger.Infof("Caching authenticated UserInfo...")
 				s.bearerUserInfoCache.Set(cacheKey, userInfo, time.Duration(s.cacheExpirationMinutes)*time.Minute)
 			}
 			break
@@ -153,7 +150,6 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 		s.authCodeFlowAuthenticationRequest(w, r)
 		return
 	}
-
 
 	logger = logger.WithField("user", userInfo)
 	logger.Info("Authorizing request...")
@@ -197,29 +193,18 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// authCachedBearerToken authenticates the client that is making the request
-// based on their token. For this function to successfully authenticate the
-// client request:
-//    * the request must contain the Bearer Token in the Authorization Header
-//    * the Bearer Token must exist in the cache
-func (s *server) authCachedBearerToken(r *http.Request) (user.Info) {
-
+// getCachedUserInfo returns the UserInfo if it's in the cache
+// using the key: 'cacheKey' or it returns nil.
+func (s *server) getCachedUserInfo(cacheKey string, r *http.Request) user.Info {
 	logger := loggerForRequest(r, logModuleInfo)
 
-	bearer := getBearerToken(r.Header.Get(s.authHeader))
-	if len(bearer) != 0 {
-		logger.Info("Extracted bearer token from request.")
-		logger.Info("Searching cache for bearer token...")
-
-		cachedUserInfo, found := s.bearerUserInfoCache.Get(bearer)
-		if found {
-			logger.Infof("Found bearer token in cache.")
-			userInfo := cachedUserInfo.(user.Info)
-			logger.Infof("Cached UserInfo: %+v", userInfo)
-			return userInfo
-		}
-		logger.Info("The extracted bearer token is not cached.")
+	cachedUserInfo, found := s.bearerUserInfoCache.Get(cacheKey)
+	if found {
+		userInfo := cachedUserInfo.(user.Info)
+		logger.Infof("Found Cached UserInfo: %+v", userInfo)
+		return userInfo
 	}
+	logger.Info("The UserInfo is not cached.")
 	return nil
 }
 

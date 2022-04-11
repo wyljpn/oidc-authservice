@@ -163,7 +163,6 @@ func main() {
 		groupsClaim: c.GroupsClaim,
 	}
 
-
 	// Set the bearerUserInfoCache cache to store
 	// the (Bearer Token, UserInfo) pairs.
 	bearerUserInfoCache := cache.New(time.Duration(c.CacheExpirationMinutes)*time.Minute, time.Duration(CacheCleanupInterval)*time.Minute)
@@ -214,6 +213,9 @@ func main() {
 		// Use Lax mode as the default
 		s.sessionSameSite = http.SameSiteLaxMode
 	}
+
+	// Print server configuration info
+	log.Infof("Cache enabled: %t", s.cacheEnabled)
 
 	// Setup complete, mark server ready
 	isReady.Set()
