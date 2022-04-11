@@ -55,15 +55,15 @@ type server struct {
 	sessionMaxAgeSeconds    int
 	strictSessionValidation bool
 
-	cacheEnabled            bool
-	cacheExpirationMinutes  int
+	cacheEnabled           bool
+	cacheExpirationMinutes int
 
-	authHeader              string
-	idTokenOpts             jwtClaimOpts
-	upstreamHTTPHeaderOpts  httpHeaderOpts
-	userIdTransformer       UserIDTransformer
-	caBundle                []byte
-	sessionSameSite         http.SameSite
+	authHeader             string
+	idTokenOpts            jwtClaimOpts
+	upstreamHTTPHeaderOpts httpHeaderOpts
+	userIdTransformer      UserIDTransformer
+	caBundle               []byte
+	sessionSameSite        http.SameSite
 }
 
 // jwtClaimOpts specifies the location of the user's identity inside a JWT's
