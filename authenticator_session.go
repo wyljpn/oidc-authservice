@@ -86,7 +86,10 @@ func (sa *sessionAuthenticator) AuthenticateRequest(r *http.Request) (*authentic
 		groups = []string{}
 	}
 
-	extra := map[string][]string{"auth-method": {authMethod}}
+	extra := map[string][]string{
+		"auth-method": {authMethod},
+		"id-token":    {session.Values[userSessionIDToken].(string)},
+	}
 
 	resp := &authenticator.Response{
 		User: &user.DefaultInfo{

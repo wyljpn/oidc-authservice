@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"path"
@@ -157,15 +158,24 @@ func getBearerToken(value string) string {
 	return value
 }
 
+func addHeaderFromExtra(res map[string]string, info user.Info, extraKey, headerKey, headerPrefix string) {
+	if arr, ok := info.GetExtra()[extraKey]; ok {
+		if len(arr) > 0 && arr[0] != "" {
+			v := arr[0]
+			if len(headerPrefix) > 0 {
+				v = fmt.Sprintf("%s%s", headerPrefix, v)
+			}
+			res[headerKey] = v
+		}
+	}
+}
+
 func userInfoToHeaders(info user.Info, opts *httpHeaderOpts, transformer *UserIDTransformer) map[string]string {
 	res := map[string]string{}
 	res[opts.userIDHeader] = opts.userIDPrefix + transformer.Transform(info.GetName())
 	res[opts.groupsHeader] = strings.Join(info.GetGroups(), ",")
-	if authMethodArr, ok := info.GetExtra()["auth-method"]; ok {
-		if len(authMethodArr) > 0 && authMethodArr[0] != "" {
-			res[opts.authMethodHeader] = authMethodArr[0]
-		}
-	}
+	addHeaderFromExtra(res, info, "auth-method", opts.authMethodHeader, "")
+	addHeaderFromExtra(res, info, "id-token", "Authorization", "Bearer ")
 	return res
 }
 
