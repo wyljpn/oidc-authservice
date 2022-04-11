@@ -62,6 +62,7 @@ Following environment variables are used by the software.
 | `AFTER_LOGOUT_URL` | `AUTHSERVICE_URL_PREFIX/site/homepage` | URL to redirect the user to after they logout. This option used to be called `STATIC_DESTINATION_URL`. For backwards compatibility, the old environment variable is also checked.|
 | `AUTH_HEADER` | `Authorization` | When the AuthService logs in a user, it creates a session for them and saves it in its database. The session secret value is saved in a cookie in the user's browser. However, for programmatic access to endpoints, it is better to use headers to authenticate. The AuthService also accepts credentials in a header configured by the `AUTH_HEADER` setting. |
 | `ID_TOKEN_HEADER` | `Authorization` | When id token is carried in this header, OIDC Authservice verifies the id token and uses the `USERID_CLAIM` inside the id token. If the `USERID_CLAIM` doesn't exist, the authentication would fail.|
+| `VERIFY_AUTH_URL` | `AUTHSERVICE_URL_PREFIX/verify` | AuthService will use this URL to accept an authenticated request or reject an unauthenticated one. It defaults to `AUTHSERVICE_URL_PREFIX/verify`. This can be used in cases such as having an NGINX Ingress controller to manage external access to services. |
 
 The AuthService provides a web server with some defaults pages for a `homepage`
 and an `after_logout` page. The following values are about these pages. To

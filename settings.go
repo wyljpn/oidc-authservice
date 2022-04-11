@@ -30,6 +30,7 @@ type config struct {
 	HomepageURL          *url.URL `split_words:"true"`
 	AfterLoginURL        *url.URL `split_words:"true"`
 	AfterLogoutURL       *url.URL `split_words:"true"`
+	VerifyAuthURL        *url.URL `split_words:"true" envconfig:"VERIFY_AUTH_URL" default:"/verify"`
 
 	// Identity Headers
 	UserIDHeader      string            `split_words:"true" default:"kubeflow-userid" envconfig:"USERID_HEADER"`
