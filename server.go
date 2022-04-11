@@ -187,7 +187,7 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	for k, v := range userInfoToHeaders(userInfo, &s.upstreamHTTPHeaderOpts, &s.userIdTransformer) {
 		w.Header().Set(k, v)
 	}
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusAccepted)
 	return
 }
 
