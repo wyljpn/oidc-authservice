@@ -82,7 +82,7 @@ type httpHeaderOpts struct {
 	authMethodHeader string
 }
 
-func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
+func (s *server) authenticate(w http.ResponseWriter, r *http.Request, promptLogin bool) {
 
 	logger := loggerForRequest(r, logModuleInfo)
 	logger.Info("Authenticating request...")
@@ -143,7 +143,14 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if userInfo == nil {
-		logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
+		msg := "Failed to authenticate using authenticators."
+		if !promptLogin {
+			logger.Infof(msg)
+			returnMessage(w, http.StatusUnauthorized, msg)
+			return
+		}
+
+		logger.Infof("%s Initiating OIDC Authorization Code flow...", msg)
 		// TODO: Detect "X-Requested-With" header and return 401
 		s.authCodeFlowAuthenticationRequest(w, r)
 		return
@@ -189,6 +196,14 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusAccepted)
 	return
+}
+
+func (s *server) authenticate_or_login(w http.ResponseWriter, r *http.Request) {
+	s.authenticate(w, r, true)
+}
+
+func (s *server) authenticate_no_login(w http.ResponseWriter, r *http.Request) {
+	s.authenticate(w, r, false)
 }
 
 // getCachedUserInfo returns the UserInfo if it's in the cache
